@@ -122,7 +122,7 @@ function convert{Ess,Fss,I}(::Type{Bnum},v::Unum{Ess,Fss,I},r::RoundingMode)
     elseif e == emax(v) && f == fmax(v)
         BigFloat(Inf)
     else
-        ldexp(BigFloat(one(I)<<fs+f), e - expobias(es) - fs)
+        ldexp(BigFloat(one(I)<<fs+f), signed(e) - signed(expobias(es)) - signed(fs))
     end
     Bnum(s ? -x : x, u)
 end
@@ -189,7 +189,7 @@ function convert{Ess,Fss,I}(U::Type{Unum{Ess,Fss,I}},b::Bnum,r::RoundingMode)
 
         # reduce e
         if e != 0
-            ue = e - expobias(es)
+            ue = signed(e) - expobias(es)
             es = mines(ue)
             e = ue + expobias(es)
         end
@@ -225,8 +225,8 @@ print(io::IO, x::Unum) = print(io,convert(Bbound,x))
 show(io::IO, b::Unum) = print(io,typeof(b),'\n',b)
 showcompact(io::IO, b::Unum) = print(io,b)
 
-for Ess = 0:6
-    for Fss = 0:6
+for Ess = 0:5
+    for Fss = 0:7
         @eval begin
             typealias $(symbol(string("Unum",Ess,Fss))) Unum{$Ess,$Fss,$(unumuint(Ess,Fss))}
             typealias $(symbol(string("Ubound",Ess,Fss))) Interval{Unum{$Ess,$Fss,$(unumuint(Ess,Fss))}}
@@ -246,6 +246,9 @@ end
 
 zero{U<:Unum}(::Type{U}) = U(0)
 zero{U<:Unum}(::Type{Interval{U}}) = Interval{U}(zero(U),zero(U))
+
+zero{U<:Unum}(::U) = U(0)
+zero{U<:Unum}(::Interval{U}) = Interval{U}(zero(U),zero(U))
 
 
     
