@@ -251,4 +251,11 @@ zero{U<:Unum}(::U) = U(0)
 zero{U<:Unum}(::Interval{U}) = Interval{U}(zero(U),zero(U))
 
 
+one{U<:Unum}(::Type{U}) = U(1)
+one{U<:Unum}(::Type{Interval{U}}) = Interval{U}(one(U),one(U))
+
+one{U<:Unum}(::U) = one(U)
+one{U<:Unum}(::Interval{U}) = Interval{U}(one(U),one(U))
+
+
     
