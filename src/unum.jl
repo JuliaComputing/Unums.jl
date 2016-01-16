@@ -118,7 +118,7 @@ function convert{Ess,Fss,I}(::Type{Bnum},v::Unum{Ess,Fss,I},r::RoundingMode)
 
     # assumes 
     x = if e == 0
-        ldexp(BigFloat(f), 1 - expobias(es) - fs)
+        ldexp(BigFloat(f), 1 - expobias(es) - signed(fs))
     elseif e == emax(v) && f == fmax(v)
         BigFloat(Inf)
     else
@@ -198,13 +198,10 @@ function convert{Ess,Fss,I}(U::Type{Unum{Ess,Fss,I}},b::Bnum,r::RoundingMode)
 end
 
 
-
-+{U<:Unum}(x::Interval{U}, y::Interval{U}) = convert(Interval{U},convert(Bbound,x) + convert(Bbound,y))
-
--{U<:Unum}(x::Interval{U}, y::Interval{U}) = convert(Interval{U},convert(Bbound,x) - convert(Bbound,y))
-
-*{U<:Unum}(x::Interval{U}, y::Interval{U}) = convert(Interval{U},convert(Bbound,x) * convert(Bbound,y))
-
+for op in (:+,:-,:*,:/)
+    @eval ($op){U<:Unum}(x::Interval{U}, y::Interval{U}) =
+        convert(Interval{U},($op)(convert(Bbound,x),convert(Bbound,y)))
+end
 
 function convert{U<:Unum}(::Type{Interval{U}},x::Bbound)
     Interval(convert(U,x.lo,RoundDown), convert(U,x.hi,RoundUp))

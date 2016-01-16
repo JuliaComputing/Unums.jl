@@ -12,9 +12,10 @@ convert(::Type{Bnum},x::Bnum) = x
 convert(::Type{Bnum},x::Real) = Bnum(x)
 
 
-import Base: +, -
+import Base: +, -, *
 
 import Base.MPFR.to_mpfr
+
 
 function +(x::Bnum, y::Bnum, r::RoundingMode)
     znum = BigFloat()
@@ -40,6 +41,15 @@ function *(x::Bnum, y::Bnum, r::RoundingMode)
     zopen = (x.open | y.open | inex) & (isfinite(x.num) & (x.num!=0) | x.open) & (isfinite(y.num) & (y.num!=0) | y.open)
     Bnum(znum, zopen)
 end
+
+function /(x::Bnum, y::Bnum, r::RoundingMode)
+    znum = BigFloat()
+    inex = ccall((:mpfr_div,:libmpfr), Int32, (Ptr{BigFloat}, Ptr{BigFloat}, Ptr{BigFloat}, Int32), &znum, &x.num, &y.num, to_mpfr(r)) != 0
+
+    zopen = (x.open | y.open | inex) & (isfinite(x.num) & (x.num!=0) | x.open) & (!isfinite(y.num) | y.open)
+    Bnum(znum, zopen)
+end
+
 
 
 import Base: min, max
@@ -92,3 +102,5 @@ show(io::IO, b::Bbound) = print(io,typeof(b),'\n',b)
 
 isposz(x::Bbound) = x.lo.num >= 0
 isnegz(x::Bbound) = x.hi.num <= 0
+ispos(x::Bbound) = x.lo.num > 0 || x.lo.num == 0 && x.lo.open
+isneg(x::Bbound) = x.hi.num < 0 || x.hi.num == 0 && x.hi.open

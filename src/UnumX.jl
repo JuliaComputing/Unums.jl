@@ -1,6 +1,7 @@
 module UnumX
 
 import Base: print, show, showcompact, convert, zero, one
+import Base: +, -, *, /
 
 export Unum, Unum22, Ubound22, Bnum, Bbound, isexact
 
