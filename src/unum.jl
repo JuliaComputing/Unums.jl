@@ -1,6 +1,6 @@
 
 
-immutable Unum{Ess,Fss,I}
+immutable Unum{Ess,Fss,I} <: Real
     bits::I
 end
 
@@ -84,14 +84,7 @@ end
 function isexact(v::Unum)
     (s,e,f,u,es,fs) = unpack(v)
     !u
-end
-    
-
-function bitlayout{Ess,Fss,I}(v::Unum{Ess,Fss,I})
-    (s,e,f,u,es,fs) = unpack(v)
-    string('|',bin(s),'|',bin(e,es),'|',bin(f,fs),'|',bin(u),'|',bin(es-one(I),Ess),'|',bin(fs-one(I),Fss),'|')
-end
-
+end    
 
 # The exponent bias is either:
 expobias(esize) = 1<<(esize-1)-1 # David thinks it's this.
@@ -142,8 +135,14 @@ function convert{Ess,Fss,I}(U::Type{Unum{Ess,Fss,I}},b::Bnum,r::RoundingMode)
         f = fmax(U)
         e = emax(U)
         u = false
+    elseif b.num == 0
+        f = zero(I)
+        e = zero(I)
+        es = one(I)
+        fs = one(I)
+        u = b.open
     else
-        e = b.num == 0 ? 0 : clamp(exponent(b.num)+expobias(esmax(U)),0,emax(U))
+        e = clamp(exponent(b.num)+expobias(esmax(U)),0,emax(U))
         u = b.open
 
         if e == 0
@@ -202,6 +201,13 @@ for op in (:+,:-,:*,:/)
     @eval ($op){U<:Unum}(x::Interval{U}, y::Interval{U}) =
         convert(Interval{U},($op)(convert(Bbound,x),convert(Bbound,y)))
 end
+for op in (:(==),:(<),:(<=))
+    @eval ($op){U<:Unum}(x::Interval{U}, y::Interval{U}) =
+        ($op)(convert(Bbound,x),convert(Bbound,y))
+end
+
+-{U<:Unum}(x::Interval{U}) = convert(Interval{U},-convert(Bbound,x))
+abs{U<:Unum}(x::Interval{U}) = convert(Interval{U},abs(convert(Bbound,x)))
 
 function convert{U<:Unum}(::Type{Interval{U}},x::Bbound)
     Interval(convert(U,x.lo,RoundDown), convert(U,x.hi,RoundUp))
@@ -219,7 +225,25 @@ showcompact{U<:Unum}(io::IO, x::Interval{U}) = print(io,x)
 
 
 print(io::IO, x::Unum) = print(io,convert(Bbound,x))
-show(io::IO, b::Unum) = print(io,typeof(b),'\n',b)
+function print_bits{Ess,Fss,I}(io::IO, v::Unum{Ess,Fss,I})
+    (s,e,f,u,es,fs) = unpack(v)
+    print(io,'|')
+    print_with_color(:red,io,bin(s))
+    print(io,'|')
+    print_with_color(:blue,io,bin(e,Int(es)))
+    print(io,'|')
+    print_with_color(:black,io,bin(f,Int(fs)))
+    print(io,'|')
+    print_with_color(:magenta,io,bin(u))
+    print(io,'|')
+    print_with_color(:blue,io,bin(es-1,Int(Ess)))
+    print(io,'|')
+    print_with_color(:grey,io,bin(fs-1,Int(Fss)))
+    print(io,'|')
+end
+print_bits(v::Unum) = print_bits(STDOUT,v)
+
+show(io::IO, x::Unum) = print(io,typeof(x),'\n',convert(Bbound,x))
 showcompact(io::IO, b::Unum) = print(io,b)
 
 for Ess = 0:5
@@ -231,28 +255,59 @@ for Ess = 0:5
     end
 end
 
+convert{U<:Unum}(::Type{U},x::U) = x
+
+function convert{U<:Unum}(::Type{Interval{U}},x::Unum)
+    convert(Interval{U},Interval(convert(Bnum,x,RoundDown), convert(Bnum,x,RoundUp)))
+end
+
+function convert(::Type{Bool},x::Unum)
+    isexact(x) || throw(InexactError())
+    convert(Bool, convert(Bnum,x,RoundDown).num)
+end
+function convert(::Type{Integer},x::Unum)
+    isexact(x) || throw(InexactError())
+    convert(Integer, convert(Bnum,x,RoundDown).num)
+end
+function convert(::Type{Bnum},x::Unum)
+    isexact(x) || throw(InexactError())
+    convert(Bnum,x,RoundDown)
+end
 
 function convert{T<:Real}(::Type{T},x::Unum)
     isexact(x) || throw(InexactError())
     convert(T, convert(Bnum,x,RoundDown).num)
 end
 
+
+convert{U<:Unum}(::Type{U},x::U) = x
+function convert{U<:Unum}(::Type{U},x::Unum)
+    error("Not implemented")
+end
+function convert{U<:Unum}(::Type{U},x::Real)
+    convert(U, convert(Bnum,x), RoundToZero)
+end
 function convert{U<:Unum}(::Type{Interval{U}},x::Real)
     convert(Interval{U},convert(Bbound,x))
 end
 
-zero{U<:Unum}(::Type{U}) = U(0)
+
+zero{U<:Unum}(::Type{U}) = convert(U,0)
 zero{U<:Unum}(::Type{Interval{U}}) = Interval{U}(zero(U),zero(U))
 
-zero{U<:Unum}(::U) = U(0)
+zero{U<:Unum}(::U) = zero(U)
 zero{U<:Unum}(::Interval{U}) = Interval{U}(zero(U),zero(U))
 
-
-one{U<:Unum}(::Type{U}) = U(1)
+one{U<:Unum}(::Type{U}) = convert(U,1)
 one{U<:Unum}(::Type{Interval{U}}) = Interval{U}(one(U),one(U))
 
 one{U<:Unum}(::U) = one(U)
 one{U<:Unum}(::Interval{U}) = Interval{U}(one(U),one(U))
 
+=={U<:Unum}(x::Interval{U},y::Irrational) = false
 
+
+function =={U<:Unum}(x::Interval{U},y::Real)
+    isexact(x.lo) && isexact(x.hi) && convert(BigFloat,x.lo) == convert(BigFloat,x.hi) == y
+end
     

@@ -1,4 +1,4 @@
-immutable Interval{T}
+immutable Interval{T<:Real} <: Real
     lo::T
     hi::T
     # function Interval(lo,hi)
@@ -11,6 +11,8 @@ immutable Interval{T}
     #     end
     # end
 end
+
+-(x::Interval) = Interval(-x.hi,-x.lo)
 
 function +(x::Interval, y::Interval)
     Interval(+(x.lo,y.lo,RoundDown), +(x.hi,y.hi,RoundUp))
@@ -78,5 +80,13 @@ function /{T}(x::Interval{T}, y::Interval{T})
 end
 
 
-# should be able to remove this if Interval <: Real
-Base.inv(x::Interval) = one(x) / x
+function abs{T}(x::Interval{T})
+    if isposz(x)
+        x
+    elseif isnegz(x)
+        -x
+    else
+        Interval(zero(T),max(-x.lo,x.hi))
+    end
+end
+        
