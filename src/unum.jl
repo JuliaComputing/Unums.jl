@@ -223,8 +223,6 @@ print{U<:Unum}(io::IO, x::Interval{U}) = print(io,convert(Bbound,x))
 show{U<:Unum}(io::IO, b::Interval{U}) = print(io,typeof(b),'\n',b)
 showcompact{U<:Unum}(io::IO, x::Interval{U}) = print(io,x)
 
-
-print(io::IO, x::Unum) = print(io,convert(Bbound,x))
 function print_bits{Ess,Fss,I}(io::IO, v::Unum{Ess,Fss,I})
     (s,e,f,u,es,fs) = unpack(v)
     print(io,'|')
@@ -242,6 +240,20 @@ function print_bits{Ess,Fss,I}(io::IO, v::Unum{Ess,Fss,I})
     print(io,'|')
 end
 print_bits(v::Unum) = print_bits(STDOUT,v)
+
+# improve complex printing
+function Base.complex_show{U<:Unum}(io::IO, z::Complex{Interval{U}}, compact::Bool)
+    compact || print(io,typeof(z),'\n')
+    r, i = reim(z)
+    showcompact(io,r)
+    print(io, compact ? "+" : " + ")
+    showcompact(io, i)
+    print(io, "*")
+    print(io, "im")
+end
+
+
+print(io::IO, x::Unum) = print(io,convert(Bbound,x))
 
 show(io::IO, x::Unum) = print(io,typeof(x),'\n',convert(Bbound,x))
 showcompact(io::IO, b::Unum) = print(io,b)
