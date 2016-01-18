@@ -90,3 +90,11 @@ function abs{T}(x::Interval{T})
     end
 end
         
+
+function sqrt{T}(x::Interval{T})
+    if isposz(x)
+        Interval(sqrt(x.lo,RoundDown),sqrt(x.hi,RoundUp))
+    else
+        Interval(T(NaN),T(NaN))
+    end
+end

@@ -52,6 +52,14 @@ function /(x::Bnum, y::Bnum, r::RoundingMode)
     Bnum(znum, zopen)
 end
 
+function sqrt(x::Bnum, r::RoundingMode)
+    znum = BigFloat()
+    inex = ccall((:mpfr_sqrt,:libmpfr), Int32, (Ptr{BigFloat}, Ptr{BigFloat}, Int32), &znum, &x.num, to_mpfr(r)) != 0
+
+    zopen = (x.open | inex)
+    Bnum(znum, zopen)
+end
+
 
 
 import Base: min, max
@@ -107,10 +115,8 @@ isnegz(x::Bbound) = x.hi.num <= 0
 ispos(x::Bbound) = x.lo.num > 0 || x.lo.num == 0 && x.lo.open
 isneg(x::Bbound) = x.hi.num < 0 || x.hi.num == 0 && x.hi.open
 
-
 ==(x::Bnum,y::Bnum) = x.num == y.num && x.open == y.open
 ==(x::Bbound,y::Bbound) = x.lo == y.lo && x.hi == y.hi
 
 <(x::Bbound,y::Bbound) = x.hi.num < y.lo.num || x.hi.num == y.lo.num && (x.hi.open | y.lo.open)
 <=(x::Bbound,y::Bbound) = x.hi.num <= y.lo.num
-

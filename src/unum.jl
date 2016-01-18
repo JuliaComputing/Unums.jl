@@ -205,9 +205,14 @@ for op in (:(==),:(<),:(<=))
     @eval ($op){U<:Unum}(x::Interval{U}, y::Interval{U}) =
         ($op)(convert(Bbound,x),convert(Bbound,y))
 end
+for op in (:-,:abs,:sqrt)
+    @eval ($op){U<:Unum}(x::Interval{U}) = convert(Interval{U},($op)(convert(Bbound,x)))
+end
 
--{U<:Unum}(x::Interval{U}) = convert(Interval{U},-convert(Bbound,x))
-abs{U<:Unum}(x::Interval{U}) = convert(Interval{U},abs(convert(Bbound,x)))
+signbit(v::Unum) = unpack(v)[1]
+signbit{U<:Unum}(x::Interval{U}) = signbit(x.lo) # okay, technically not correct
+
+
 
 function convert{U<:Unum}(::Type{Interval{U}},x::Bbound)
     Interval(convert(U,x.lo,RoundDown), convert(U,x.hi,RoundUp))
