@@ -97,8 +97,16 @@ end
 function print(io::IO, b::Bbound)
     nlo = b.lo.num
     flo = Float64(nlo)
+    if flo == 0
+        # don't print signed zero
+        flo = abs(flo)
+    end
+    
     nhi = b.hi.num
     fhi = Float64(nhi)
+    if fhi == 0
+        fhi = abs(fhi)
+    end
     
     if nlo == nhi
         print(io,nlo==flo?flo:nlo)
