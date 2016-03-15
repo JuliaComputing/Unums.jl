@@ -86,11 +86,7 @@ function isexact(v::Unum)
     !u
 end    
 
-# The exponent bias is either:
-expobias(esize) = 1<<(esize-1)-1 # David thinks it's this.
-# or
-# expobias(esize) = 1<<(esize-1)+1
-
+expobias(esize) = 1<<(esize-1)-1
 
 # Conversion: §4.9
 function convert{Ess,Fss,I}(::Type{Bnum},v::Unum{Ess,Fss,I},r::RoundingMode)
@@ -131,52 +127,98 @@ function convert{Ess,Fss,I}(U::Type{Unum{Ess,Fss,I}},b::Bnum,r::RoundingMode)
         e = emax(U)
         u = true
         s = false
-    elseif isinf(b.num) && !b.open
-        f = fmax(U)
-        e = emax(U)
-        u = false
+    elseif isinf(b.num)
+        if b.open
+            f = fmax(U)-one(I)
+            e = emax(U)
+            u = true
+        else
+            f = fmax(U)
+            e = emax(U)
+            u = false
+        end
     elseif b.num == 0
         f = zero(I)
         e = zero(I)
         es = one(I)
         fs = one(I)
         u = b.open
+        if u
+            # RoundDown => (0,?)
+            # RoundUp   => (?,0)
+            s = r == RoundUp
+        end        
     else
-        e = clamp(exponent(b.num)+expobias(esmax(U)),0,emax(U))
+        bias = expobias(es)
+        
+        e = clamp(exponent(b.num)+bias,0,emax(U))
         u = b.open
 
         if e == 0
-            ff = ldexp(b.num, expobias(es)-1+fs)
-        else
-            ff = ldexp(b.num, expobias(es)-e+fs)
-        end
-        
-        u |= !isinteger(ff)
-        of = trunc(I,abs(round(ff,r))) # includes implicit 1
-        ofmax = fmax(U) + one(I) << fsmax(U)
+            # subnormal: f = 0_XXXX
+            ff = ldexp(b.num, bias-1+fs)
+            u |= !isinteger(ff)
 
-        
-        if e == emax(U)
-            if of >= ofmax
-                of = ofmax(U) - one(I)
-                u = true
-            end
-        else
-            if of > ofmax # has been rounded up to 2^n
-                e += one(I)
-                of >>= 1
-            end
-        end
-        f = of & fmax(U)
+            f = trunc(I,abs(round(ff,r)))  # 0_0000 <= f <= 1_0000
 
-        # fix upper boundary, reduce f
-        if u && (r==RoundUp && !s || r==RoundDown && s)
-            if f == 0
-                e -= one(I)
-                f = fmax(U)
-            else
+            if u && (r==RoundUp && !s || r==RoundDown && s)
+                # fix up boundary if necessary
                 f -= one(I)
             end
+                      
+            if f == one(I) << fsmax(U)
+                # has been rounded up to 1_0000
+                e = one(e)
+                f = zero(I)
+            end
+        else
+            # normal: f = 1_XXXX
+            ff = ldexp(b.num, bias-e+fs)
+            u |= !isinteger(ff)
+
+            i = one(I) << fsmax(U)  #  1_0000
+            j = i << 1              # 10_0000
+            k = fmax(U)             #  0_1111
+            
+            if ff > j
+                of = j
+                u = true
+            else
+                of = trunc(I,abs(round(ff,r))) # 1_0000 <= of <= 10_0000
+            end
+            
+            if u && (r==RoundUp && !s || r==RoundDown && s)
+                # fix up boundary if necessary
+                if of == i # 1_0000
+                    e -= one(e)
+                    if e == 0
+                        of = k # 0_1111
+                    else
+                        of = i|k # 1_1111
+                    end
+                else
+                    of -= one(I)
+                end                
+            end
+            
+            if e == emax(U)
+                # need to handle Infs correctly
+                if of >= i|k # 1_1111
+                    of = i|k - one(i) # 1_1110
+                    u = true
+                end
+            else
+                if of == j # 10_0000
+                    of = i|k # 1_0000
+                    e += one(e)
+                end
+            end
+
+            f = of & k           
+        end
+
+        # reduce f
+        if u && (r==RoundUp && !s || r==RoundDown && s)
             t = min(trailing_ones(f),fs-1)
             f >>= t
             fs -= I(t)
@@ -189,10 +231,10 @@ function convert{Ess,Fss,I}(U::Type{Unum{Ess,Fss,I}},b::Bnum,r::RoundingMode)
         # reduce e
         if e != 0
             ue = signed(e) - expobias(es)
-            es = mines(ue)
+            es = I(mines(ue))
             e = ue + expobias(es)
         end
-    end    
+    end
     Unum{Ess,Fss,I}(s,e,f,u,es,fs)
 end
 
