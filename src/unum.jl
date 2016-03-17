@@ -314,6 +314,7 @@ function print_bits{Ess,Fss,I}(io::IO, v::Unum{Ess,Fss,I})
     print(io,'|')
     print_with_color(:grey,io,bin(fs-1,Int(Fss)))
     print(io,'|')
+    print(io,'\n')
 end
 print_bits(v::Unum) = print_bits(STDOUT,v)
 
