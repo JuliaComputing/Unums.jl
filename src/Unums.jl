@@ -1,4 +1,4 @@
-module UnumX
+module Unums
 
 import Base: print, show, showcompact, convert, zero, one
 import Base: +, -, *, /, abs, ==, <, <=, sqrt, signbit

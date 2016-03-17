@@ -1,7 +1,7 @@
-using UnumX
+using Unums
 using Base.Test
 
-import UnumX: Unum00, Ubound00, Ubound22, Ubound34
+import Unums: Unum00, Ubound00, Ubound22, Ubound34
 
 
 for U in (Ubound00, Ubound22, Ubound34, Unum00)
