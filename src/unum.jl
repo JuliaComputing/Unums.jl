@@ -419,3 +419,10 @@ function limits{Ess,Fss}(u::AbstractUnum{Ess,Fss})
     U = unum_type(Ess,Fss)
     U(b.lo.num), U(b.hi.num), b.lo.open, b.hi.open
 end
+
+function in(x::AbstractUnum,y::AbstractUnum)
+    bx = convert(Bbound,x)
+    by = convert(Bbound,y)
+    bx in by
+end
+    

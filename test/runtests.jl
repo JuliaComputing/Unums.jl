@@ -35,3 +35,7 @@ for U in (Unum22, Ubound22)
     @test olo == true
     @test ohi == true
 end
+
+@test Unum22(2) in Unum22(2)
+@test Unum22(2) in Ubound22(2,3)
+@test !(Unum22(2) in Unum22(2.1))

@@ -217,4 +217,7 @@ isneg(x::Bbound) = x.hi.num < 0 || x.hi.num == 0 && x.hi.open
 <(x::Bbound,y::Bbound) = x.hi.num < y.lo.num || x.hi.num == y.lo.num && (x.hi.open | y.lo.open)
 <=(x::Bbound,y::Bbound) = x.hi.num <= y.lo.num
 
-
+function in(x::Bbound,y::Bbound)
+    (y.lo.num < x.lo.num || (y.lo.num == x.lo.num && (!y.lo.open || x.lo.open))) &&
+    (x.hi.num < y.hi.num || (x.hi.num == y.hi.num && (!y.hi.open || x.hi.open)))
+end
