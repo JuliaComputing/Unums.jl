@@ -34,6 +34,17 @@ function unumuint(Ess,Fss)
     end
 end
 
+function unum_type(Ess,Fss)
+    I = unumuint(Ess,Fss)
+    Unum{Ess,Fss,I}
+end
+
+function ubound_type(Ess,Fss)
+    I = unumuint(Ess,Fss)
+    Ubound{Ess,Fss,I}
+end
+
+
 fsmax{Ess,Fss,I}(::Type{Unum{Ess,Fss,I}}) =
     (one(I) << Fss)
 fsmax(u::Unum) = fsmax(typeof(u))
@@ -324,8 +335,7 @@ The result type of a computational procedure involving Unums
 function result_type{EssA,FssA,EssB,FssB}(::AbstractUnum{EssA,FssA},::AbstractUnum{EssB,FssB})
     Ess = max(EssA,EssB)
     Fss = max(FssA,FssB)
-    I = unumuint(Ess,Fss)
-    Ubound{Ess,Fss,I}
+    ubound_type(Ess,Fss)
 end
 function result_type{Ess,Fss}(::AbstractUnum{Ess,Fss})
     I = unumuint(Ess,Fss)
@@ -391,4 +401,20 @@ one{U<:AbstractUnum}(::U) = convert(U,1)
 
 function ==(x::AbstractUnum,y::Real)
     isexact(x) && convert(BigFloat,x) == y
+end
+
+"""
+    limits(u::AbstractUnum)
+
+Returns a tuple
+
+    (lo,hi,olo,ohi)
+
+where `lo` and `hi` are the lower and upper limits of the Unum or Ubound,
+and `olo` and `ohi` are indicators as to whether they are open.
+"""
+function limits{Ess,Fss}(u::AbstractUnum{Ess,Fss})
+    b = convert(Bbound,u)
+    U = unum_type(Ess,Fss)
+    U(b.lo.num), U(b.hi.num), b.lo.open, b.hi.open
 end

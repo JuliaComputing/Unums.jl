@@ -25,3 +25,13 @@ for U in (Ubound00, Ubound22, Ubound34, Unum00)
     @test sqrt(U(1)) == U(1)
     @test sqrt(U(2)) == U(sqrt(2))
 end
+
+
+for U in (Unum22, Ubound22)
+    u = convert(U, 2.1)
+    lo,hi,olo,ohi = limits(u)
+    @test lo == 2
+    @test hi == 2.125
+    @test olo == true
+    @test ohi == true
+end
