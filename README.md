@@ -12,7 +12,7 @@ There are several other packages which implement Unums in Julia:
 
 * [tbreloff/Unums.jl](https://github.com/tbreloff/Unums.jl) (despite sharing a name, these are distinct packages)
 * [REX-Computing/unumjl](https://github.com/REX-Computing/unumjl)
-* [SimpleUnums.jl](https://github.com/dpsanders/SimpleUnums.jl)
+* [dpsanders/SimpleUnums.jl](https://github.com/dpsanders/SimpleUnums.jl)
 
 There are also some other implementations of interval arithmetic:
 
