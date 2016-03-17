@@ -39,3 +39,7 @@ end
 @test Unum22(2) in Unum22(2)
 @test Unum22(2) in Ubound22(2,3)
 @test !(Unum22(2) in Unum22(2.1))
+
+@test isfinite(Unum22(2))
+@test isfinite(Unum22(2.1))
+@test !isfinite(Unum22(1e300))

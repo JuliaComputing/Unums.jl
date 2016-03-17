@@ -425,4 +425,8 @@ function in(x::AbstractUnum,y::AbstractUnum)
     by = convert(Bbound,y)
     bx in by
 end
-    
+
+function isfinite(x::AbstractUnum)
+    b = convert(Bbound, x)
+    isfinite(b.lo.num) && isfinite(b.hi.num)
+end
