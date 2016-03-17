@@ -181,7 +181,7 @@ function /(x::Bbound, y::Bbound)
             Bbound(/(x.hi,y.hi,RoundDown), /(x.lo,y.hi,RoundUp))
         end
     else
-        Bbound(T(NaN),T(NaN))
+        Bbound(NaN)
     end
 end
 
@@ -192,7 +192,7 @@ function abs(x::Bbound)
     elseif isnegz(x)
         -x
     else
-        Bbound(zero(T),max(-x.lo,x.hi))
+        Bbound(zero(BigFloat),max(-x.lo,x.hi))
     end
 end
         
@@ -201,7 +201,7 @@ function sqrt(x::Bbound)
     if isposz(x)
         Bbound(sqrt(x.lo,RoundDown),sqrt(x.hi,RoundUp))
     else
-        Bbound(T(NaN),T(NaN))
+        Bbound(NaN)
     end
 end
 
