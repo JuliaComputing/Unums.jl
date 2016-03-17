@@ -1,10 +1,10 @@
 using UnumX
 using Base.Test
 
-import UnumX: Ubound00, Ubound22, Ubound34
+import UnumX: Unum00, Ubound00, Ubound22, Ubound34
 
 
-for U in (Ubound00, Ubound22, Ubound34)
+for U in (Ubound00, Ubound22, Ubound34, Unum00)
     @test U(0) + U(1) == U(1)
     @test U(0) - U(1) == U(-1)
     @test U(0) + U(2) == U(2)

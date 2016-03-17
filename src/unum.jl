@@ -1,9 +1,19 @@
 
 
-immutable Unum{Ess,Fss,I} <: Real
+abstract AbstractUnum{Ess,Fss} <: Real
+
+immutable Unum{Ess,Fss,I} <: AbstractUnum{Ess,Fss}
     bits::I
+    function Unum(bits::I, frombits::Type{Val{true}})
+        # avoid conflict with Unum(x::Int)
+        new(bits)
+    end
 end
 
+immutable Ubound{Ess,Fss,I} <: AbstractUnum{Ess,Fss}
+    lo::Unum{Ess,Fss,I}
+    hi::Unum{Ess,Fss,I}
+end
 
 
 maxubits(Ess,Fss) = 2 + Ess + Fss + 2^Ess + 2^Fss
@@ -41,12 +51,12 @@ emax{Ess,Fss,I}(U::Type{Unum{Ess,Fss,I}}) =
 emax(u::Unum) = emax(typeof(u))
 
 "smallest possible esize containing unbiased exponent ue"
-mines(ue) = Base.ndigits0z(ue-1,2)+1 
+mines(ue) = Base.ndigits0z(ue-1,2)+1
 
 
 function unpack{Ess,Fss,I}(v::Unum{Ess,Fss,I})
     bits = v.bits
-    
+
     fs = (bits & (fsmax(v)-one(I))) + one(I)
     bits >>= Fss
 
@@ -75,16 +85,20 @@ function call{Ess,Fss,I}(::Type{Unum{Ess,Fss,I}},s,e,f,u,es,fs)
     r = (r << es) | e
     r = (r << fs) | f
     r = (r << 1) | u
-    
+
     r = (r << Ess) | (es-one(I))
     r = (r << Fss) | (fs-one(I))
-    Unum{Ess,Fss,I}(r)
+    Unum{Ess,Fss,I}(I(r),Val{true})
 end
 
 function isexact(v::Unum)
     (s,e,f,u,es,fs) = unpack(v)
     !u
-end    
+end
+function isexact(v::Ubound)
+    isexact(v.lo) && isexact(v.hi) && v.lo == v.hi
+end
+
 
 expobias(esize) = 1<<(esize-1)-1
 
@@ -93,19 +107,19 @@ function convert{Ess,Fss,I}(::Type{Bnum},v::Unum{Ess,Fss,I},r::RoundingMode)
     if (1 << Fss) > get_bigfloat_precision()
         error("insufficient BigFloat precision")
     end
-    
+
     (s,e,f,u,es,fs) = unpack(v)
-    
+
     # check for Inf or NaN
     if u
         if e == emax(v) && f == fmax(v)
-            return Bnum(NaN,u)        
+            return Bnum(NaN,u)
         elseif r == RoundFromZero || r == RoundUp && !s || r == RoundDown && s
             f += 1
         end
     end
 
-    # assumes 
+    # assumes
     x = if e == 0
         ldexp(BigFloat(f), 1 - expobias(es) - signed(fs))
     elseif e == emax(v) && f == fmax(v)
@@ -117,11 +131,11 @@ function convert{Ess,Fss,I}(::Type{Bnum},v::Unum{Ess,Fss,I},r::RoundingMode)
 end
 
 
-function convert{Ess,Fss,I}(U::Type{Unum{Ess,Fss,I}},b::Bnum,r::RoundingMode)
+function convert{Ess,Fss,I}(U::Type{Unum{Ess,Fss,I}},b::Bnum,r::RoundingMode;reduce_f::Bool=true)
     es = esmax(U)
     fs = fsmax(U)
     s = signbit(b.num)
-    
+
     if isnan(b.num)
         f = fmax(U)
         e = emax(U)
@@ -147,10 +161,10 @@ function convert{Ess,Fss,I}(U::Type{Unum{Ess,Fss,I}},b::Bnum,r::RoundingMode)
             # RoundDown => (0,?)
             # RoundUp   => (?,0)
             s = r == RoundUp
-        end        
+        end
     else
         bias = expobias(es)
-        
+
         e = clamp(exponent(b.num)+bias,0,emax(U))
         u = b.open
 
@@ -165,7 +179,7 @@ function convert{Ess,Fss,I}(U::Type{Unum{Ess,Fss,I}},b::Bnum,r::RoundingMode)
                 # fix up boundary if necessary
                 f -= one(I)
             end
-                      
+
             if f == one(I) << fsmax(U)
                 # has been rounded up to 1_0000
                 e = one(e)
@@ -179,14 +193,14 @@ function convert{Ess,Fss,I}(U::Type{Unum{Ess,Fss,I}},b::Bnum,r::RoundingMode)
             i = one(I) << fsmax(U)  #  1_0000
             j = i << 1              # 10_0000
             k = fmax(U)             #  0_1111
-            
+
             if ff > j
                 of = j
                 u = true
             else
                 of = trunc(I,abs(round(ff,r))) # 1_0000 <= of <= 10_0000
             end
-            
+
             if u && (r==RoundUp && !s || r==RoundDown && s)
                 # fix up boundary if necessary
                 if of == i # 1_0000
@@ -198,9 +212,9 @@ function convert{Ess,Fss,I}(U::Type{Unum{Ess,Fss,I}},b::Bnum,r::RoundingMode)
                     end
                 else
                     of -= one(I)
-                end                
+                end
             end
-            
+
             if e == emax(U)
                 # need to handle Infs correctly
                 if of >= i|k # 1_1111
@@ -214,18 +228,20 @@ function convert{Ess,Fss,I}(U::Type{Unum{Ess,Fss,I}},b::Bnum,r::RoundingMode)
                 end
             end
 
-            f = of & k           
+            f = of & k
         end
 
         # reduce f
-        if u && (r==RoundUp && !s || r==RoundDown && s)
-            t = min(trailing_ones(f),fs-1)
-            f >>= t
-            fs -= I(t)
-        else
-            t = min(trailing_zeros(f),fs-1)
-            f >>= t
-            fs -= I(t)
+        if reduce_f || !u
+            if u && (r==RoundUp && !s || r==RoundDown && s)
+                t = min(trailing_ones(f),fs-1)
+                f >>= t
+                fs -= I(t)
+            else
+                t = min(trailing_zeros(f),fs-1)
+                f >>= t
+                fs -= I(t)
+            end
         end
 
         # reduce e
@@ -240,35 +256,37 @@ end
 
 
 for op in (:+,:-,:*,:/)
-    @eval ($op){U<:Unum}(x::Interval{U}, y::Interval{U}) =
-        convert(Interval{U},($op)(convert(Bbound,x),convert(Bbound,y)))
+    @eval ($op)(x::AbstractUnum, y::AbstractUnum) =
+        convert(result_type(x,y),($op)(convert(Bbound,x),convert(Bbound,y)))
 end
 for op in (:(==),:(<),:(<=))
-    @eval ($op){U<:Unum}(x::Interval{U}, y::Interval{U}) =
+    @eval ($op)(x::AbstractUnum, y::AbstractUnum) =
         ($op)(convert(Bbound,x),convert(Bbound,y))
 end
 for op in (:-,:abs,:sqrt)
-    @eval ($op){U<:Unum}(x::Interval{U}) = convert(Interval{U},($op)(convert(Bbound,x)))
+    @eval begin
+        ($op)(x::AbstractUnum) = convert(result_type(x),($op)(convert(Bbound,x)))
+    end
 end
 
 signbit(v::Unum) = unpack(v)[1]
-signbit{U<:Unum}(x::Interval{U}) = signbit(x.lo) # okay, technically not correct
+signbit(x::Ubound) = signbit(x.lo) # okay, technically not correct
 
 
 
-function convert{U<:Unum}(::Type{Interval{U}},x::Bbound)
-    Interval(convert(U,x.lo,RoundDown), convert(U,x.hi,RoundUp))
+function convert{Ess,Fss,I}(::Type{Ubound{Ess,Fss,I}},x::Bbound)
+    U = Unum{Ess,Fss,I}
+    Ubound(convert(U,x.lo,RoundDown), convert(U,x.hi,RoundUp))
 end
-convert{U<:Unum}(::Type{Bbound},x::Interval{U}) =
-    Interval(convert(Bnum,x.lo,RoundDown), convert(Bnum,x.hi,RoundUp))
 convert(::Type{Bbound},x::Unum) =
-    Interval(convert(Bnum,x,RoundDown), convert(Bnum,x,RoundUp))
+    Bbound(convert(Bnum,x,RoundDown), convert(Bnum,x,RoundUp))
+convert(::Type{Bbound},x::Ubound) =
+    Bbound(convert(Bnum,x.lo,RoundDown), convert(Bnum,x.hi,RoundUp))
 
 
-
-print{U<:Unum}(io::IO, x::Interval{U}) = print(io,convert(Bbound,x))
-show{U<:Unum}(io::IO, b::Interval{U}) = print(io,typeof(b),'\n',b)
-showcompact{U<:Unum}(io::IO, x::Interval{U}) = print(io,x)
+print(io::IO, x::AbstractUnum) = print(io,convert(Bbound,x))
+show(io::IO, x::AbstractUnum) = print(io,typeof(x),'\n',x)
+showcompact(io::IO, x::AbstractUnum) = print(io,x)
 
 function print_bits{Ess,Fss,I}(io::IO, v::Unum{Ess,Fss,I})
     (s,e,f,u,es,fs) = unpack(v)
@@ -289,7 +307,7 @@ end
 print_bits(v::Unum) = print_bits(STDOUT,v)
 
 # improve complex printing
-function Base.complex_show{U<:Unum}(io::IO, z::Complex{Interval{U}}, compact::Bool)
+function Base.complex_show{U<:AbstractUnum}(io::IO, z::Complex{U}, compact::Bool)
     compact || print(io,typeof(z),'\n')
     r, i = reim(z)
     showcompact(io,r)
@@ -300,24 +318,34 @@ function Base.complex_show{U<:Unum}(io::IO, z::Complex{Interval{U}}, compact::Bo
 end
 
 
-print(io::IO, x::Unum) = print(io,convert(Bbound,x))
+"""
+The result type of a computational procedure involving Unums
+"""
+function result_type{EssA,FssA,EssB,FssB}(::AbstractUnum{EssA,FssA},::AbstractUnum{EssB,FssB})
+    Ess = max(EssA,EssB)
+    Fss = max(FssA,FssB)
+    I = unumuint(Ess,Fss)
+    Ubound{Ess,Fss,I}
+end
+function result_type{Ess,Fss}(::AbstractUnum{Ess,Fss})
+    I = unumuint(Ess,Fss)
+    Ubound{Ess,Fss,I}
+end
 
-show(io::IO, x::Unum) = print(io,typeof(x),'\n',convert(Bbound,x))
-showcompact(io::IO, b::Unum) = print(io,b)
 
 for Ess = 0:5
     for Fss = 0:7
         @eval begin
             typealias $(symbol(string("Unum",Ess,Fss))) Unum{$Ess,$Fss,$(unumuint(Ess,Fss))}
-            typealias $(symbol(string("Ubound",Ess,Fss))) Interval{Unum{$Ess,$Fss,$(unumuint(Ess,Fss))}}
+            typealias $(symbol(string("Ubound",Ess,Fss))) Ubound{$Ess,$Fss,$(unumuint(Ess,Fss))}
         end
     end
 end
 
 convert{U<:Unum}(::Type{U},x::U) = x
 
-function convert{U<:Unum}(::Type{Interval{U}},x::Unum)
-    convert(Interval{U},Interval(convert(Bnum,x,RoundDown), convert(Bnum,x,RoundUp)))
+function convert{U<:Ubound}(::Type{U},x::Unum)
+    convert(U,Bbound(convert(Bnum,x,RoundDown), convert(Bnum,x,RoundUp)))
 end
 
 function convert(::Type{Bool},x::Unum)
@@ -344,29 +372,23 @@ function convert{U<:Unum}(::Type{U},x::Unum)
     error("Not implemented")
 end
 function convert{U<:Unum}(::Type{U},x::Real)
-    convert(U, convert(Bnum,x), RoundToZero)
+    convert(U, convert(Bnum,x), RoundToZero; reduce_f=false)
 end
-function convert{U<:Unum}(::Type{Interval{U}},x::Real)
-    convert(Interval{U},convert(Bbound,x))
+function convert{U<:Ubound}(::Type{U},x::Real)
+    convert(U, convert(Bbound,x))
 end
 
 
-zero{U<:Unum}(::Type{U}) = convert(U,0)
-zero{U<:Unum}(::Type{Interval{U}}) = Interval{U}(zero(U),zero(U))
 
-zero{U<:Unum}(::U) = zero(U)
-zero{U<:Unum}(::Interval{U}) = Interval{U}(zero(U),zero(U))
-
-one{U<:Unum}(::Type{U}) = convert(U,1)
-one{U<:Unum}(::Type{Interval{U}}) = Interval{U}(one(U),one(U))
-
-one{U<:Unum}(::U) = one(U)
-one{U<:Unum}(::Interval{U}) = Interval{U}(one(U),one(U))
-
-=={U<:Unum}(x::Interval{U},y::Irrational) = false
+zero{U<:AbstractUnum}(::Type{U}) = convert(U,0)
+zero{U<:AbstractUnum}(::U) = convert(U,0)
+one{U<:AbstractUnum}(::Type{U}) = convert(U,1)
+one{U<:AbstractUnum}(::U) = convert(U,1)
 
 
-function =={U<:Unum}(x::Interval{U},y::Real)
-    isexact(x.lo) && isexact(x.hi) && convert(BigFloat,x.lo) == convert(BigFloat,x.hi) == y
+==(x::AbstractUnum,y::Irrational) = false
+
+
+function ==(x::AbstractUnum,y::Real)
+    isexact(x) && convert(BigFloat,x) == y
 end
-    

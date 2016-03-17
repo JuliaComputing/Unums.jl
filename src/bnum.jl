@@ -5,6 +5,12 @@ immutable Bnum <: Real
     open::Bool
 end
 
+immutable Bbound <: Real
+    lo::Bnum
+    hi::Bnum
+end
+
+
 Bnum(x::Real,open::Bool) = Bnum(BigFloat(x),open)
 Bnum(x::Real) = Bnum(x,false)
 
@@ -87,11 +93,10 @@ end
 import Base: isnan
 isnan(x::Bnum) = isnan(x.num)
 
-typealias Bbound Interval{Bnum}
 
 function convert(::Type{Bbound},x::Real)
     c = convert(Bnum,x)
-    Interval(c,c)
+    Bbound(c,c)
 end
 
 function print(io::IO, b::Bbound)
@@ -118,6 +123,89 @@ end
 show(io::IO, b::Bbound) = print(io,typeof(b),'\n',b)
 
 
+-(x::Bbound) = Bbound(-x.hi,-x.lo)
+
+function +(x::Bbound, y::Bbound)
+    Bbound(+(x.lo,y.lo,RoundDown), +(x.hi,y.hi,RoundUp))
+end
+function -(x::Bbound, y::Bbound)
+    Bbound(-(x.lo,y.hi,RoundDown), -(x.hi,y.lo,RoundUp))
+end
+
+
+function *(x::Bbound, y::Bbound)
+    if isposz(x) # x >= 0
+        if isposz(y)
+            Bbound(*(x.lo,y.lo,RoundDown),*(x.hi,y.hi,RoundUp))
+        elseif isnegz(y)
+            Bbound(*(x.hi,y.lo,RoundDown),*(x.lo,y.hi,RoundUp))
+        else
+            Bbound(*(x.hi,y.lo,RoundDown),*(x.hi,y.hi,RoundUp))
+        end
+    elseif isnegz(x) # x <= 0
+        if isposz(y)
+            Bbound(*(x.lo,y.hi,RoundDown),*(x.hi,y.lo,RoundUp))
+        elseif isnegz(y)
+            Bbound(*(x.hi,y.hi,RoundDown),*(x.lo,y.lo,RoundUp))
+        else
+            Bbound(*(x.lo,y.hi,RoundDown),*(x.lo,y.lo,RoundUp))
+        end
+    else
+        if isposz(y)
+            Bbound(*(x.lo,y.hi,RoundDown),*(x.hi,y.hi,RoundUp))
+        elseif isnegz(y)
+            Bbound(*(x.hi,y.lo,RoundDown),*(x.lo,y.lo,RoundUp))
+        else
+            Bbound(min(*(x.lo,y.hi,RoundDown),*(x.hi,y.lo,RoundDown)),
+                     max(*(x.lo,y.lo,RoundUp),*(x.hi,y.hi,RoundUp)))
+        end
+    end
+end
+
+
+function /(x::Bbound, y::Bbound)
+    if ispos(y) # b strictly positive
+        if isposz(x)
+            Bbound(/(x.lo,y.hi,RoundDown), /(x.hi,y.lo,RoundUp))
+        elseif isnegz(x)
+            Bbound(/(x.lo,y.lo,RoundDown), /(x.hi,y.hi,RoundUp))
+        else
+            Bbound(/(x.lo,y.lo,RoundDown), /(x.hi,y.lo,RoundUp))
+        end
+    elseif isneg(y)
+        if isposz(x)
+            Bbound(/(x.hi,y.hi,RoundDown), /(x.lo,y.lo,RoundUp))
+        elseif isnegz(x)
+            Bbound(/(x.hi,y.lo,RoundDown), /(x.lo,y.hi,RoundUp))
+        else
+            Bbound(/(x.hi,y.hi,RoundDown), /(x.lo,y.hi,RoundUp))
+        end
+    else
+        Bbound(T(NaN),T(NaN))
+    end
+end
+
+
+function abs(x::Bbound)
+    if isposz(x)
+        x
+    elseif isnegz(x)
+        -x
+    else
+        Bbound(zero(T),max(-x.lo,x.hi))
+    end
+end
+        
+
+function sqrt(x::Bbound)
+    if isposz(x)
+        Bbound(sqrt(x.lo,RoundDown),sqrt(x.hi,RoundUp))
+    else
+        Bbound(T(NaN),T(NaN))
+    end
+end
+
+
 isposz(x::Bbound) = x.lo.num >= 0
 isnegz(x::Bbound) = x.hi.num <= 0
 ispos(x::Bbound) = x.lo.num > 0 || x.lo.num == 0 && x.lo.open
@@ -128,3 +216,5 @@ isneg(x::Bbound) = x.hi.num < 0 || x.hi.num == 0 && x.hi.open
 
 <(x::Bbound,y::Bbound) = x.hi.num < y.lo.num || x.hi.num == y.lo.num && (x.hi.open | y.lo.open)
 <=(x::Bbound,y::Bbound) = x.hi.num <= y.lo.num
+
+
