@@ -318,6 +318,12 @@ function print_bits{Ess,Fss,I}(io::IO, v::Unum{Ess,Fss,I})
 end
 print_bits(v::Unum) = print_bits(STDOUT,v)
 
+function width(T, u::AbstractUnum)
+    b = convert(Bbound, u)
+    T(b.hi.num - b.lo.num)
+end
+width(u::AbstractUnum) = width(Float64,u)
+
 # improve complex printing
 function Base.complex_show{U<:AbstractUnum}(io::IO, z::Complex{U}, compact::Bool)
     compact || print(io,typeof(z),'\n')
