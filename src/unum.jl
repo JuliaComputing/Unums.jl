@@ -205,7 +205,7 @@ function convert{Ess,Fss,I}(U::Type{Unum{Ess,Fss,I}},b::Bnum,r::RoundingMode;red
             j = i << 1              # 10_0000
             k = fmax(U)             #  0_1111
 
-            if ff > j
+            if abs(ff) > j
                 of = j
                 u = true
             else
