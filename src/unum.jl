@@ -280,6 +280,8 @@ for op in (:-,:abs,:sqrt)
     end
 end
 
+^(x::AbstractUnum, y::Integer) = convert(result_type(x), convert(Bbound,x)^y)
+
 signbit(v::Unum) = unpack(v)[1]
 signbit(x::Ubound) = signbit(x.lo) # okay, technically not correct
 

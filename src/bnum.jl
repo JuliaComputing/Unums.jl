@@ -18,9 +18,7 @@ convert(::Type{Bnum},x::Bnum) = x
 convert(::Type{Bnum},x::Real) = Bnum(x)
 
 
-import Base: +, -, *
-
-import Base.MPFR.to_mpfr
+import Base.MPFR: to_mpfr, ClongMax
 
 -(x::Bnum) = Bnum(-x.num,x.open)
 
@@ -63,6 +61,14 @@ function sqrt(x::Bnum, r::RoundingMode)
     inex = ccall((:mpfr_sqrt,:libmpfr), Int32, (Ptr{BigFloat}, Ptr{BigFloat}, Int32), &znum, &x.num, to_mpfr(r)) != 0
 
     zopen = (x.open | inex)
+    Bnum(znum, zopen)
+end
+
+function ^(x::Bnum, y::ClongMax, r::RoundingMode)
+    znum = BigFloat()
+    inex = ccall((:mpfr_pow_si, :libmpfr), Int32, (Ptr{BigFloat}, Ptr{BigFloat}, Clong, Int32), &znum, &x.num, y, to_mpfr(r)) != 0
+
+    zopen = y != 0 && (x.open | inex)
     Bnum(znum, zopen)
 end
 
@@ -202,6 +208,28 @@ function sqrt(x::Bbound)
         Bbound(sqrt(x.lo,RoundDown),sqrt(x.hi,RoundUp))
     else
         Bbound(NaN)
+    end
+end
+
+function ^(x::Bbound,y::Integer)
+    if y == 0
+        Bbound(1)
+    elseif y > 0
+        if isodd(y) || isposz(x)
+            Bbound(^(x.lo,y,RoundDown),^(x.hi,y,RoundUp))
+        elseif isnegz(x)
+            Bbound(^(x.hi,y,RoundDown),^(x.lo,y,RoundUp))
+        else
+            Bbound(zero(BigFloat),^(max(-x.lo,x.hi),y,RoundUp))
+        end
+    else
+        if isodd(y) || isposz(x)
+            Bbound(^(x.hi,y,RoundDown),^(x.lo,y,RoundUp))
+        elseif isnegz(x)
+            Bbound(^(x.lo,y,RoundDown),^(x.hi,y,RoundUp))
+        else
+            Bbound(NaN)
+        end            
     end
 end
 

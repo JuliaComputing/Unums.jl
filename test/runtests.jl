@@ -24,6 +24,11 @@ for U in (Ubound00, Ubound22, Ubound34, Unum00)
     @test U(1)/U(-2) == U(-0.5)
     @test sqrt(U(1)) == U(1)
     @test sqrt(U(2)) == U(sqrt(2))
+    @test U(2)^4 == U(2^4)
+
+    if U <: Unums.Ubound
+        @test U(-1,1)^2 == U(0,1)
+    end
 end
 
 
