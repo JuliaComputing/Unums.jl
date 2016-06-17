@@ -1,6 +1,8 @@
-
-
 abstract AbstractUnum{Ess,Fss} <: Real
+
+# promotion
+import Base: promote_rule
+promote_rule{U<:AbstractUnum,T<:Real}(::Type{U},::Type{T}) = U
 
 immutable Unum{Ess,Fss,I} <: AbstractUnum{Ess,Fss}
     bits::I
@@ -112,6 +114,13 @@ end
 
 
 expobias(esize) = 1<<(esize-1)-1
+
+function isnan(v::Unum)
+    (s,e,f,u,es,fs) = unpack(v)
+    u && e == emax(v) && f == fmax(v)
+end
+isnan(v::Ubound) = isnan(v.lo) || isnan(v.hi)
+
 
 # Conversion: §4.9
 function convert{Ess,Fss,I}(::Type{Bnum},v::Unum{Ess,Fss,I},r::RoundingMode)
@@ -325,6 +334,13 @@ function width(T, u::AbstractUnum)
     T(b.hi.num - b.lo.num)
 end
 width(u::AbstractUnum) = width(Float64,u)
+
+function mid(T, u::AbstractUnum)
+    b = convert(Bbound, u)
+    T((b.hi.num + b.lo.num)/2)
+end
+mid(u::AbstractUnum) = mid(Float64,u)
+
 
 # improve complex printing
 function Base.complex_show{U<:AbstractUnum}(io::IO, z::Complex{U}, compact::Bool)
