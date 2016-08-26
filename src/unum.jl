@@ -92,7 +92,7 @@ function unpack{Ess,Fss,I}(v::Unum{Ess,Fss,I})
     (s,e,f,u,es,fs)
 end
 
-function call{Ess,Fss,I}(::Type{Unum{Ess,Fss,I}},s,e,f,u,es,fs)
+@compat function (::Type{Unum{Ess,Fss,I}}){Ess,Fss,I}(s,e,f,u,es,fs)
     r = zero(I) | s
 
     r = (r << es) | e
@@ -124,7 +124,7 @@ isnan(v::Ubound) = isnan(v.lo) || isnan(v.hi)
 
 # Conversion: §4.9
 function convert{Ess,Fss,I}(::Type{Bnum},v::Unum{Ess,Fss,I},r::RoundingMode)
-    if (1 << Fss) > get_bigfloat_precision()
+    if (1 << Fss) > precision(BigFloat)
         error("insufficient BigFloat precision")
     end
 
@@ -307,7 +307,7 @@ convert(::Type{Bbound},x::Ubound) =
 
 
 print(io::IO, x::AbstractUnum) = print(io,convert(Bbound,x))
-show(io::IO, x::AbstractUnum) = print(io,typeof(x),'\n',x)
+show(io::IO, x::AbstractUnum) = print(io,x)
 showcompact(io::IO, x::AbstractUnum) = print(io,x)
 
 function print_bits{Ess,Fss,I}(io::IO, v::Unum{Ess,Fss,I})
@@ -343,14 +343,15 @@ mid(u::AbstractUnum) = mid(Float64,u)
 
 
 # improve complex printing
+if VERSION < v"0.5.0-"
 function Base.complex_show{U<:AbstractUnum}(io::IO, z::Complex{U}, compact::Bool)
-    compact || print(io,typeof(z),'\n')
     r, i = reim(z)
     showcompact(io,r)
     print(io, compact ? "+" : " + ")
     showcompact(io, i)
     print(io, "*")
     print(io, "im")
+end
 end
 
 
@@ -371,8 +372,8 @@ end
 for Ess = 0:5
     for Fss = 0:7
         @eval begin
-            typealias $(symbol(string("Unum",Ess,Fss))) Unum{$Ess,$Fss,$(unumuint(Ess,Fss))}
-            typealias $(symbol(string("Ubound",Ess,Fss))) Ubound{$Ess,$Fss,$(unumuint(Ess,Fss))}
+            typealias $(Symbol(string("Unum",Ess,Fss))) Unum{$Ess,$Fss,$(unumuint(Ess,Fss))}
+            typealias $(Symbol(string("Ubound",Ess,Fss))) Ubound{$Ess,$Fss,$(unumuint(Ess,Fss))}
         end
     end
 end
@@ -402,7 +403,6 @@ function convert{T<:Real}(::Type{T},x::Unum)
 end
 
 
-convert{U<:Unum}(::Type{U},x::U) = x
 function convert{U<:Unum}(::Type{U},x::Unum)
     error("Not implemented")
 end

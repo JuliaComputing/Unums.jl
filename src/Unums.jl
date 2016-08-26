@@ -1,5 +1,7 @@
 module Unums
 
+using Compat
+
 import Base: print, show, showcompact, convert, zero, one
 import Base: +, -, *, /, ^, abs, ==, <, <=, sqrt, signbit, in, isfinite, isnan
 
